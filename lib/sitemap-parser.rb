@@ -6,6 +6,7 @@ class SitemapParser
   def initialize(url, opts = {})
     @url = url
     @options = {:followlocation => true, :recurse => false}.merge(opts)
+    @errors = Hash.new
   end
 
   def raw_sitemap
@@ -31,20 +32,31 @@ class SitemapParser
   end
 
   def urls
-    if sitemap.at('urlset')
-      sitemap.at("urlset").search("url")
-    elsif sitemap.at('sitemapindex')
-      found_urls = []
-      if @options[:recurse]
-        sitemap.at('sitemapindex').search('sitemap').each do |sitemap|
-          child_sitemap_location = sitemap.at('loc').content
-          found_urls << self.class.new(child_sitemap_location, :recurse => false).urls
+    @urls ||= begin
+      if sitemap.at('urlset')
+        sitemap.at("urlset").search("url")
+      elsif sitemap.at('sitemapindex')
+        found_urls = []
+        if @options[:recurse]
+          sitemap.at('sitemapindex').search('sitemap').each do |sitemap|
+            child_sitemap_location = sitemap.at('loc').content
+            begin
+              found_urls << self.class.new(child_sitemap_location, :recurse => false).urls
+            rescue => e
+              @errors[child_sitemap_location] = e.message
+            end
+          end
         end
+        found_urls.flatten
+      else
+        raise 'Malformed sitemap, no urlset'
       end
-      return found_urls.flatten
-    else
-      raise 'Malformed sitemap, no urlset'
     end
+  end
+
+  def errors
+    urls # force sitemap retrieval if it hasn't happened yet already
+    @errors
   end
 
   def to_a

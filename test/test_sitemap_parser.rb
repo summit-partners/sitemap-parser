@@ -82,4 +82,23 @@ class TestSitemapParser < Test::Unit::TestCase
     assert_equal 6, sitemap.to_a.count
     assert_equal 6, sitemap.urls.count
   end
+
+  def test_nested_sitemap_failure
+    urls = ['https://example.com/sitemap_index.xml', 'https://example.com/sitemap.xml', 'https://example.com/sitemap2.xml']
+    urls[0..1].each do |url|
+      filename = url.gsub('https://example.com/', '')
+      file = File.join(File.dirname(__FILE__), 'fixtures', filename)
+      response = Typhoeus::Response.new(code: 200, body: File.read(file))
+      Typhoeus.stub(url).and_return(response)
+    end
+
+    # make the third one fail
+    failed_response = Typhoeus::Response.new(code: 400, body: "Kaboom")
+    Typhoeus.stub(urls.last).and_return(failed_response)
+
+    sitemap = SitemapParser.new 'https://example.com/sitemap_index.xml', :recurse => true
+    assert_equal 3, sitemap.to_a.count
+    assert_equal 3, sitemap.urls.count
+    assert_not_nil sitemap.errors[urls.last]
+  end
 end
