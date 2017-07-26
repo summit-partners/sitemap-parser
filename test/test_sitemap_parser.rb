@@ -35,6 +35,31 @@ class TestSitemapParser < Test::Unit::TestCase
     assert_equal Nokogiri::XML::Document, @local_sitemap.sitemap.class
   end
 
+  def test_url_objects
+    url1, url2, url3 = *@sitemap.to_a
+
+    assert_equal "http://ben.balter.com/", url1.loc
+    assert_equal DateTime.new(2014, 2, 8, 18, 45, 54, '-05:00'), url1.lastmod
+    assert_equal "daily", url1.changefreq
+    assert_equal 1.0, url1.priority
+
+    assert_equal "http://ben.balter.com/about/", url2.loc
+    assert_equal DateTime.new(2014, 2, 8, 18, 45, 54, '-05:00'), url2.lastmod
+    assert_equal "weekly", url2.changefreq
+    assert_equal 0.7, url2.priority
+
+    assert_equal "http://ben.balter.com/contact/", url3.loc
+    assert_equal "weekly", url3.changefreq
+    assert_equal 0.7, url3.priority
+  end
+
+  def test_filter_to_a
+    urls = @sitemap.to_a {|u| URI.parse(u.loc).path != "/"}
+    assert_equal 2, urls.count
+    assert_equal ["http://ben.balter.com/about/", "http://ben.balter.com/contact/"],
+                 urls.map {|u| u.loc}
+  end
+
   def test_404
     url = 'http://ben.balter.com/foo/bar/sitemap.xml'
     response = Typhoeus::Response.new(code: 404, body: "404")
@@ -53,8 +78,8 @@ class TestSitemapParser < Test::Unit::TestCase
     Typhoeus.stub(url).and_return(response)
 
     sitemap = SitemapParser.new url
-    assert_raise RuntimeError.new('Malformed sitemap, url without loc') do
-      sitemap.to_a
+    assert_raise RuntimeError.new("No 'loc' element found") do
+      sitemap.to_a.first.loc
     end
   end
 

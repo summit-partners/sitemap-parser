@@ -1,3 +1,4 @@
+require 'time'
 require 'nokogiri'
 require 'typhoeus'
 
@@ -59,9 +60,48 @@ class SitemapParser
     @errors
   end
 
-  def to_a
-    urls.map { |url| url.at("loc").content }
-  rescue NoMethodError
-    raise 'Malformed sitemap, url without loc'
+  def to_a(&block)
+    result = urls.map { |e| URL.new(e) }
+    result = result.select(&block) if block_given?
+    result
+  end
+
+  # An object model representing the fields of a <url> element, cast to the
+  # appropriate types
+  class URL
+    attr_accessor :loc, :lastmod, :changefreq, :priority
+
+    # Construct a new instance with a Nokogiri XML element node
+    def initialize(node)
+      @node = node
+    end
+
+    def loc
+      @loc ||= @node.at("loc").content
+    rescue NoMethodError
+      raise "No 'loc' element found"
+    end
+
+    def lastmod
+      @lastmod ||= DateTime.parse(@node.at("lastmod").content)
+    rescue NoMethodError
+      raise "No 'lastmod' element found"
+    end
+
+    def changefreq
+      @changefreq = @node.at("changefreq").content
+    rescue NoMethodError
+      raise "No 'changefreq' element found"
+    end
+
+    def priority
+      @priority ||= @node.at("priority").content.to_f
+    rescue NoMethodError
+      raise "No 'priority' element found"
+    end
+
+    def inspect
+      "<SitemapParser::URL loc=#{self.loc} lastmod=#{self.lastmod} changefreq=#{self.changefreq} priority=#{self.priority}>"
+    end
   end
 end
