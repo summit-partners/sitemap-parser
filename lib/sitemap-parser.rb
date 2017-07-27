@@ -1,6 +1,7 @@
-require 'time'
 require 'nokogiri'
+require 'time'
 require 'typhoeus'
+require 'zlib'
 
 class SitemapParser
 
@@ -16,7 +17,17 @@ class SitemapParser
         request = Typhoeus::Request.new(@url, followlocation: @options[:followlocation])
         request.on_complete do |response|
           if response.success?
-            return response.body
+            content_type = response.headers_hash['Content-Type']
+            content_encoding = response.headers_hash['Content-Encoding']
+
+            case internal_content_type(content_type, content_encoding)
+            when :gzip
+              return Zlib::GzipReader.new(StringIO.new(response.body))
+            when :xml
+              return response.body
+            else
+              raise "Unexpected Content-Type: #{content_type}, Content-Encoding: #{content_encoding}"
+            end
           else
             raise "HTTP request to #{@url} failed"
           end
@@ -64,6 +75,22 @@ class SitemapParser
     result = urls.map { |e| URL.new(e) }
     result = result.select(&block) if block_given?
     result
+  end
+
+  private
+
+  VALID_CONTENT_TYPES = [%r{text/xml}, %r{application/xml}, %r{text/plain}, %r{text/html}]
+
+  def internal_content_type(type, encoding)
+    types_match = VALID_CONTENT_TYPES.any? {|t| type =~ t}
+    if type =~ /gzip/ ||
+      (encoding =~ /gzip/ && types_match)
+      :gzip
+    elsif types_match
+      :xml
+    else
+      :invalid
+    end
   end
 
   # An object model representing the fields of a <url> element, cast to the
