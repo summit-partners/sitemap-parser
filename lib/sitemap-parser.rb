@@ -40,7 +40,7 @@ class SitemapParser
   end
 
   def sitemap
-    @sitemap ||= Nokogiri::XML(raw_sitemap)
+    @sitemap ||= Nokogiri::XML(raw_sitemap).remove_namespaces!
   end
 
   def urls
