@@ -96,7 +96,7 @@ class SitemapParser
   # An object model representing the fields of a <url> element, cast to the
   # appropriate types
   class URL
-    attr_accessor :loc, :lastmod, :changefreq, :priority
+    attr_accessor :loc, :lastmod, :publication_date, :changefreq, :priority
 
     # Construct a new instance with a Nokogiri XML element node
     def initialize(node)
@@ -106,29 +106,37 @@ class SitemapParser
     def loc
       @loc ||= @node.at("loc").content
     rescue NoMethodError
-      raise "No 'loc' element found"
+      nil
     end
 
     def lastmod
       @lastmod ||= DateTime.parse(@node.at("lastmod").content)
     rescue NoMethodError
-      raise "No 'lastmod' element found"
+      nil
     end
 
     def changefreq
-      @changefreq = @node.at("changefreq").content
+      @changefreq ||= @node.at("changefreq").content
     rescue NoMethodError
-      raise "No 'changefreq' element found"
+      nil
+    end
+
+    def publication_date
+      @publication_date ||= DateTime.parse(@node.at("publication_date").content)
+    rescue NoMethodError
+      nil
     end
 
     def priority
       @priority ||= @node.at("priority").content.to_f
     rescue NoMethodError
-      raise "No 'priority' element found"
+      nil
     end
 
     def inspect
-      "<SitemapParser::URL loc=#{self.loc} lastmod=#{self.lastmod} changefreq=#{self.changefreq} priority=#{self.priority}>"
+      "#<SitemapParser::URL:#{self.object_id} loc=#{self.loc} " +
+        "lastmod=#{self.lastmod} changefreq=#{self.changefreq} " +
+        "priority=#{self.priority}>"
     end
   end
 end
